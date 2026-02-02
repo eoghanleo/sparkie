@@ -1,0 +1,21 @@
+# Sparkie - AS3000 Electrical Standards Assistant
+
+# Web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+jinja2
+python-multipart
+
+# Snowflake
+snowflake-snowpark-python>=1.11.0
+snowflake-connector-python>=3.0.0
+
+# LLM
+groq>=0.4.0
+
+# Data & utilities
+numpy>=1.24.0
+pandas>=2.0.0
+python-dotenv>=1.0.0
+typing-extensions>=4.5.0
+aiohttp>=3.9.0

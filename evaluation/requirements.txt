@@ -1,0 +1,18 @@
+# Sparkie Evaluation Framework Dependencies
+
+# Core
+snowflake-connector-python>=3.0.0
+python-dotenv>=1.0.0
+
+# LLM evaluation
+groq>=0.4.0
+
+# Async processing
+aiohttp>=3.9.0
+asyncio
+
+# Data processing
+pandas>=2.0.0  # Optional, for data analysis
+
+# Type hints
+typing-extensions>=4.5.0
