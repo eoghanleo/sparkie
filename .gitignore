@@ -28,6 +28,7 @@ Thumbs.db
 *.csv
 *.json
 *.pkl
+!data/wiring_focused_semantic_mapping.csv
 
 # PDFs and images
 *.pdf
