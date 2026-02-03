@@ -1,0 +1,51 @@
+AxisID	Category	Axis	Poles	Explanation
+AX-001	Ontology and metaphysics	Ontic scale	microscopic → cosmic	Shift scale to reveal different agents, constraints, and payoffs.
+AX-002	Ontology and metaphysics	World animacy	inert → alive and agentic	Assume more or less agency in the environment itself.
+AX-003	Ontology and metaphysics	Reality stability	consistent → glitching and unstable	Introduce predictable rules or destabilizing glitches as premise.
+AX-004	Ontology and metaphysics	Boundary permeability	sealed → leaky	Let outside forces leak into the system and vice versa.
+AX-005	Ontology and metaphysics	Moral physics	amoral → karmic and consequence-heavy	Bake ethics and consequence into mechanics rather than pure optimization.
+AX-006	Epistemology and framing	Explanation lens	mechanistic → phenomenological	Describe through causal mechanics or lived phenomenology of actors.
+AX-007	Epistemology and framing	Observer stance	outside observer → embodied participant	Frame as detached analysis or first-person embedded experience.
+AX-008	Epistemology and framing	Abstraction level	concrete → symbolic	Stay tangible in systems or elevate into symbolic meaning.
+AX-009	Epistemology and framing	Novelty	typical → unprecedented	Lean on familiar patterns or invent unprecedented forms and rituals.
+AX-010	Epistemology and framing	Ambiguity tolerance	crisp meaning → deliberate ambiguity	Clarify intent tightly or intentionally preserve interpretive ambiguity.
+AX-011	Emotion and motivation	Valence	unpleasant → pleasant	Tilt experience toward discomfort or pleasure to change motivation.
+AX-012	Emotion and motivation	Arousal	calm → intense	Control intensity and pace of stimuli to shape attention.
+AX-013	Emotion and motivation	Dominance	powerless → in-command	Offer powerlessness or command to redefine player relation.
+AX-014	Emotion and motivation	Safety	cozy → perilous	Build coziness or real peril to transform decision-making.
+AX-015	Emotion and motivation	Wonder	indifferent → awestruck	Push toward mundane familiarity or awe-filled discovery.
+AX-016	Social and cultural dynamics	Social density	solitary → crowded	Vary population crowding to alter logistics and stories.
+AX-017	Social and cultural dynamics	Hierarchy	flat → stratified	Design egalitarian dynamics or strict rank-driven behaviors.
+AX-018	Social and cultural dynamics	Trust ecology	high-trust → paranoid	Assume cooperative trust or paranoid suspicion between actors.
+AX-019	Social and cultural dynamics	Conflict mode	conciliatory → competitive	Emphasize collaboration or competition as default social strategy.
+AX-020	Social and cultural dynamics	Cultural anchoring	timeless → time-and-place-specific	Ground in specific place/time or make it archetypal and timeless.
+AX-021	Narrative and time	Temporal span	moment → generations	Zoom into moments or multi-generation arcs and inheritance.
+AX-022	Narrative and time	Pacing	lingering → frenetic	Let rhythms linger or accelerate into frenetic cycles.
+AX-023	Narrative and time	Chronology	straight → fractured	Tell straight timeline or fractured, looping, non-linear time.
+AX-024	Narrative and time	Stakes	trivial → existential	Keep goals trivial or escalate to existential survival.
+AX-025	Narrative and time	Ending mode	open → definitive	Leave outcomes open-ended or deliver definitive closure.
+AX-026	Space and environment	Spatial scale	tabletop → planetary	Constrain to small diorama or expand to planetary scope.
+AX-027	Space and environment	Topography	flat → vertical	Flatten space or verticalize into layers, cliffs, tunnels.
+AX-028	Space and environment	Resource distribution	uniform → patchy	Make resources uniform or patchy to drive strategy.
+AX-029	Space and environment	Threat ecology	static → dynamic	Keep threats static or adaptive, moving, co-evolving.
+AX-030	Space and environment	Legibility	readable → disorienting	Make world readable or deliberately disorienting to navigate.
+AX-031	Form, material, perception	Shape language	rounded → angular	Use soft forms or sharp geometry to cue mood.
+AX-032	Form, material, perception	Detail density	minimalist → ornate	Render minimal cues or ornate micro-detail to guide perception.
+AX-033	Form, material, perception	Symmetry	lopsided → mirrored	Bias toward irregular asymmetry or mirrored order and pattern.
+AX-034	Form, material, perception	Texture granularity	smooth → gritty	Choose smooth surfaces or gritty particulate materiality.
+AX-035	Form, material, perception	Imperfection	clean → noisy and handmade	Make things clean or noisy, handmade, and errorful.
+AX-036	Color and light	Hue temperature	cool → warm	Shift palette cool-to-warm to influence emotional tone.
+AX-037	Color and light	Light-dark contrast	low → high	Flatten contrast or heighten chiaroscuro for drama.
+AX-038	Color and light	Saturation	muted → saturated	Mute colors or saturate them to amplify signal and mood.
+AX-039	Color and light	Emissive glow	none → luminous	Avoid glow or add luminosity as information and magic.
+AX-040	Color and light	Palette drift over time	fixed → evolving	Keep colors stable or evolve palette with progression.
+AX-041	Sound and movement	Sonic presence	silence → constant soundscape	Use silence or constant soundscape to imply aliveness.
+AX-042	Sound and movement	Timbre	pure → noisy	Choose pure tones or noisy textures to color feedback.
+AX-043	Sound and movement	Rhythm	free → grid-locked	Allow free rhythms or lock to grid for mechanical feel.
+AX-044	Sound and movement	Harmony mood	consonant → dissonant	Use consonance or dissonance to steer tension.
+AX-045	Sound and movement	Motion weight	light → strong	Make movement light or heavy to change perceived physics.
+AX-046	Interaction and systems	Agency	spectator → author	Offer spectating or authorship to redefine player responsibility.
+AX-047	Interaction and systems	Control granularity	coarse → fine	Provide coarse knobs or fine control over subsystems.
+AX-048	Interaction and systems	Feedback latency	delayed → immediate	Delay feedback or make it immediate to change learning.
+AX-049	Interaction and systems	Rule transparency	opaque → legible	Hide rules or make them legible and teachable.
+AX-050	Interaction and systems	Emergence	scripted → emergent	Script outcomes or rely on emergent interactions and surprises.

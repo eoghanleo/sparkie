@@ -1,0 +1,5 @@
+# Viridian config (ideation, research)
+# Format: key: value (flat, no nesting)
+ideation.done_score_min: 80
+research.done_score_min: 10
+requests.allow: ideation->research,research->ideation

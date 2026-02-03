@@ -1,0 +1,23 @@
+name: "gantry.test.listener"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "phosphene/signals/indexes/workflow_trigger_probe.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  listener:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report trigger context
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PHOSPHENE TEST LISTENER TRIGGERED"
+          echo "actor=${GITHUB_ACTOR}"
+          echo "ref=${GITHUB_REF}"
+          echo "sha=${GITHUB_SHA}"

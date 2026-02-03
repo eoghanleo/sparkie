@@ -1,0 +1,6 @@
+# Beryl config (product-marketing, product-strategy)
+# Format: key: value (flat, no nesting)
+product-marketing.done_score_min: 80
+product-vision.done_score_min: 10
+product-strategy.done_score_min: 10
+requests.allow: product-marketing->research,product-marketing->ideation,product-vision->research,product-vision->ideation,product-vision->product-marketing,product-strategy->research,product-strategy->ideation,product-strategy->product-marketing,product-strategy->product-vision

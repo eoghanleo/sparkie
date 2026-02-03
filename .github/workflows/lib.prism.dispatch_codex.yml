@@ -1,0 +1,42 @@
+name: "lib.prism.dispatch_codex"
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        required: true
+        type: number
+      body:
+        required: true
+        type: string
+    secrets:
+      PHOSPHENE_HUMAN_TOKEN:
+        required: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post Codex message as a comment
+        uses: actions/github-script@v7
+        env:
+          PHOSPHENE_HUMAN_TOKEN: ${{ secrets.PHOSPHENE_HUMAN_TOKEN }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number("${{ inputs.issue_number }}");
+            const body = ${{ toJson(inputs.body) }};
+
+            // NOTE: github-script v7 provides `github` (Octokit) already; do not require @actions/github here.
+            // If you need a human-authored comment, use GH API via `curl` with PHOSPHENE_HUMAN_TOKEN.
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });
+

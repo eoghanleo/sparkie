@@ -1,0 +1,6 @@
+# Cerulean config (product-management, feature-management)
+# Format: key: value (flat, no nesting)
+product-management.done_score_min: 80
+product-architecture.done_score_min: 10
+feature-management.done_score_min: 10
+requests.allow: product-management->research,product-management->ideation,product-management->product-marketing,product-management->product-vision,product-management->product-strategy,product-management->product-architecture,product-management->product-evaluation,product-management->test-management,feature-management->product-management,feature-management->product-architecture,feature-management->product-evaluation,feature-management->test-management,product-architecture->product-management,product-architecture->research,product-architecture->product-marketing,product-architecture->product-vision,product-architecture->product-strategy
