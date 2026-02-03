@@ -244,7 +244,7 @@ jobs:
                 "- VPD-002",
                 "[/PHOSPHENE_INPUTS]",
                 "",
-              ].join(\"\\n\");
+              ].join("\n");
 
               const phospheneBlock = [
                 "[PHOSPHENE]",
