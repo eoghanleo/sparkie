@@ -1,5 +1,0 @@
-# Cadmium config (test-management)
-# Format: key: value (flat, no nesting)
-product-evaluation.done_score_min: 10
-test-management.done_score_min: 10
-requests.allow: product-evaluation->product-management,product-evaluation->feature-management,product-evaluation->test-management,product-evaluation->research,test-management->product-management,test-management->feature-management,test-management->product-evaluation
