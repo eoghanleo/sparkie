@@ -1,8 +1,16 @@
-# Environment
+# Environment & Secrets
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 env/
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
 
 # Python
 __pycache__/
