@@ -1,0 +1,333 @@
+#!/usr/bin/env bash
+#
+# PHOSPHENE CLI (drop-in)
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(cd "$SCRIPT_DIR/../lib" 2>/dev/null && pwd || true)"
+if [[ -z "${LIB_DIR:-}" || ! -f "$LIB_DIR/phosphene_env.sh" ]]; then
+  # Repo layout fallback: phosphene/phosphene-core/bin/phosphene -> phosphene/phosphene-core/lib/phosphene_env.sh
+  LIB_DIR="$(cd "$SCRIPT_DIR/../lib" && pwd)"
+fi
+# shellcheck source=/dev/null
+source "$LIB_DIR/phosphene_env.sh"
+
+CMD="${1:-help}"
+shift || true
+
+if [[ -t 1 ]]; then
+  # Core Phosphene colors
+  PHOSPHENE_GREEN='\033[38;5;118m'      # The signature "weird green"
+  PHOSPHENE_BRIGHT='\033[38;5;154m'     # Brighter variant
+  PHOSPHENE_NEON='\033[38;5;46m'        # Neon eye-searing green
+  PHOSPHENE_DARK='\033[38;5;28m'        # Darker subdued variant
+
+  # Cyberpunk accent colors
+  CYAN_GLOW='\033[38;5;51m'          # Bright cyan
+  MAGENTA_PULSE='\033[38;5;201m'     # Hot magenta
+  BLUE_ELECTRIC='\033[38;5;33m'      # Electric blue
+  YELLOW_HAZARD='\033[38;5;226m'     # Warning yellow
+
+  # Text effects
+  BOLD='\033[1m'
+  DIM='\033[2m'
+  REVERSE='\033[7m'
+  RESET='\033[0m'
+
+  # Background options
+  BG_BLACK='\033[40m'
+else
+  PHOSPHENE_GREEN='' PHOSPHENE_BRIGHT='' PHOSPHENE_NEON='' PHOSPHENE_DARK=''
+  CYAN_GLOW='' MAGENTA_PULSE='' BLUE_ELECTRIC='' YELLOW_HAZARD=''
+  BOLD='' DIM='' REVERSE='' RESET='' BG_BLACK=''
+fi
+
+print_hr() {
+  echo -e "${PHOSPHENE_DARK}╾───────⟨${PHOSPHENE_GREEN} $1 ${PHOSPHENE_DARK}⟩───────╼${RESET}"
+}
+
+banner() {
+  echo -e "${BG_BLACK}"
+  echo -e "${PHOSPHENE_BRIGHT}╔═══════════════════════════════════════════════════════════════════════════╗${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${PHOSPHENE_NEON}${BOLD}██╗   ██╗██╗██████╗ ██████╗ ██╗ ██████╗${RESET}               ${CYAN_GLOW}╱╱╱╱╱╱╱╭╮╱╱╱╱╱╱╱╱╱╱${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${PHOSPHENE_NEON}${BOLD}██║   ██║██║██╔══██╗██╔══██╗██║██╔════╝${RESET}               ${CYAN_GLOW}╱╱╱╱╱╭╮┃┃╱╱╱╱╱╱╱╱╱╱${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${PHOSPHENE_NEON}${BOLD}██║   ██║██║██████╔╝██████╔╝██║██║     ${RESET}               ${CYAN_GLOW}╱╱╱╱╱┃┃┃┃╭╮╱╱╱╱╱╱╱╱${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${PHOSPHENE_GREEN}${BOLD}╚██╗ ██╔╝██║██╔══██╗██╔══██╗██║██║     ${RESET}               ${CYAN_GLOW}╱╱╱╭╮┃┃┃┃┃┃╭╮╱╱╭╮╱╱${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${PHOSPHENE_GREEN}${BOLD} ╚████╔╝ ██║██║  ██║██║  ██║██║╚██████╗${RESET}               ${CYAN_GLOW}───┫┃┃┃┃┃┃┃┃┃╭╮┃┣──${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${PHOSPHENE_GREEN}${BOLD}  ╚═══╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝ ╚═════╝${RESET}               ${CYAN_GLOW}╱╱╱╰╯┃┃┃┃╰╯┃┃╰╯╰╯╱╱${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET}                                                       ${CYAN_GLOW}╱╱╱╱╱╰╯┃┃╱╱╰╯╱╱╱╱╱╱${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${PHOSPHENE_BRIGHT}[ SDLC NEUROFRAMEWORK ]${RESET} ${PHOSPHENE_DARK}<< V.0.2.0 >>                 ${CYAN_GLOW}╱╱╱╱╱╱╱┃┃╱╱╱╱╱╱╱╱╱╱${RESET} ${PHOSPHENE_BRIGHT}║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}║${RESET} ${MAGENTA_PULSE}BASH-FIRST SDLC TOOLBOX (DROP-IN)${RESET}                         ${CYAN_GLOW}╱╱╱╱╱╱╱╰╯╱╱╱╱╱╱╱╱╱╱${RESET}${PHOSPHENE_BRIGHT} ║${RESET}"
+  echo -e "${PHOSPHENE_BRIGHT}╚═══════════════════════════════════════════════════════════════════════════╝${RESET}"
+  echo ""
+  echo -e "${REVERSE}${PHOSPHENE_NEON} P_H_O_S_P_H_E_N_E NEUROFRAMEWORK ACTIVATED ${RESET}"
+  echo ""
+}
+
+doctor() {
+  banner
+  print_hr "SYSTEM DIAGNOSTICS"
+  echo -e "${PHOSPHENE_GREEN}[${CYAN_GLOW}SYS${PHOSPHENE_GREEN}]${RESET} ${DIM}Scanning dependency matrix...${RESET}"
+  local missing=0
+
+  for c in bash awk sed grep find date; do
+    if command -v "$c" &> /dev/null; then
+      echo -e "${PHOSPHENE_GREEN}[${PHOSPHENE_BRIGHT}OK${PHOSPHENE_GREEN}]${RESET} $c"
+    else
+      echo -e "${PHOSPHENE_GREEN}[${YELLOW_HAZARD}ERROR${PHOSPHENE_GREEN}]${RESET} $c not found"
+      missing=1
+    fi
+  done
+
+  if command -v tree &> /dev/null; then
+    echo -e "${PHOSPHENE_GREEN}[${PHOSPHENE_BRIGHT}OK${PHOSPHENE_GREEN}]${RESET} tree: $(tree --version 2>/dev/null | head -n 1 || echo installed)"
+  else
+    echo -e "${PHOSPHENE_GREEN}[${BLUE_ELECTRIC}INFO${PHOSPHENE_GREEN}]${RESET} tree not found (optional)"
+  fi
+
+  echo ""
+  if [[ "$missing" -eq 0 ]]; then
+    echo -e "${PHOSPHENE_GREEN}[${PHOSPHENE_BRIGHT}OK${PHOSPHENE_GREEN}]${RESET} ${PHOSPHENE_NEON}All required tools detected.${RESET}"
+    return 0
+  fi
+  echo -e "${PHOSPHENE_GREEN}[${YELLOW_HAZARD}WARN${PHOSPHENE_GREEN}]${RESET} Missing required tools."
+  return 1
+}
+
+help() {
+  cat <<EOF
+PHOSPHENE (drop-in)
+
+Usage:
+  ./phosphene/phosphene-core/bin/phosphene <command>
+
+Commands:
+  banner   Print the PHOSPHENE neon banner
+  doctor   Print banner + dependency diagnostics
+  id       Global ID registry (build/validate/where/next)
+  signal   Signal tooling (tamper hash)
+  autoscribe  Manual autoscribe helpers (issue tidy/adopt)
+  help     Show this help
+
+ID registry:
+  ./phosphene/phosphene-core/bin/phosphene id build
+  ./phosphene/phosphene-core/bin/phosphene id validate
+  ./phosphene/phosphene-core/bin/phosphene id where <ID>
+  ./phosphene/phosphene-core/bin/phosphene id next --type <type>
+
+EOF
+}
+
+id_help() {
+  cat <<'EOF'
+PHOSPHENE ID REGISTRY (global)
+
+Usage:
+  ./phosphene/phosphene-core/bin/phosphene id [build|validate|where <ID>|next --type <type>]
+
+Notes:
+  - This is a repo-wide registry (writes to: phosphene/id_index.tsv)
+  - Implementation lives in:
+      phosphene/phosphene-core/bin/id_registry.sh
+
+EOF
+}
+
+id_cmd() {
+  local root
+  root="$(phosphene_find_project_root)" || {
+    echo "PHOSPHENE: not in a PHOSPHENE project (cannot find repo root with ./phosphene)." 1>&2
+    return 1
+  }
+
+  local impl="$root/phosphene/phosphene-core/bin/id_registry.sh"
+  if [[ ! -f "$impl" ]]; then
+    echo "PHOSPHENE: missing ID registry implementation: $impl" 1>&2
+    return 1
+  fi
+
+  local sub="${1:-build}"
+  case "$sub" in
+    -h|--help|help) id_help; return 0 ;;
+  esac
+
+  bash "$impl" "$sub" "${@:2}"
+}
+
+signal_help() {
+  cat <<'EOF'
+PHOSPHENE SIGNAL TOOLING
+
+Usage:
+  ./phosphene/phosphene-core/bin/phosphene signal tamper [compute|update|validate] <signal.json>
+  ./phosphene/phosphene-core/bin/phosphene signal tamper [compute-line|validate-line] <json_line>
+  ./phosphene/phosphene-core/bin/phosphene signal bus   [append|validate] [--bus <path>] ...
+
+Notes:
+  - signals are recorded as JSONL lines in:
+      phosphene/signals/bus.jsonl
+  - each JSONL line must include a valid tamper_hash (per-line hashing)
+  - implementation lives in:
+      phosphene/phosphene-core/bin/signal_tamper_hash.sh
+EOF
+}
+
+signal_cmd() {
+  local root
+  root="$(phosphene_find_project_root)" || {
+    echo "PHOSPHENE: not in a PHOSPHENE project (cannot find repo root with ./phosphene)." 1>&2
+    return 1
+  }
+
+  local tamper_impl="$root/phosphene/phosphene-core/bin/signal_tamper_hash.sh"
+  if [[ ! -f "$tamper_impl" ]]; then
+    echo "PHOSPHENE: missing signal tamper-hash implementation: $tamper_impl" 1>&2
+    return 1
+  fi
+  local bus_impl="$root/phosphene/phosphene-core/bin/signal_bus.sh"
+
+  local sub="${1:-help}"
+  shift || true
+  case "$sub" in
+    -h|--help|help) signal_help; return 0 ;;
+    tamper)
+      local op="${1:-help}"
+      shift || true
+      bash "$tamper_impl" "$op" "$@"
+      ;;
+    bus)
+      if [[ ! -f "$bus_impl" ]]; then
+        echo "PHOSPHENE: missing signal bus implementation: $bus_impl" 1>&2
+        return 1
+      fi
+      local op="${1:-help}"
+      shift || true
+      bash "$bus_impl" "$op" "$@"
+      ;;
+    *)
+      echo "Unknown signal subcommand: $sub" 1>&2
+      signal_help
+      return 2
+      ;;
+  esac
+}
+
+autoscribe_help() {
+  cat <<'EOF'
+PHOSPHENE AUTOSCRIBE (manual helpers)
+
+Purpose:
+  Help humans reintegrate hand-made GitHub Issues into the signal-driven flow by:
+  - enforcing a strict [PHOSPHENE] block
+  - applying the correct phosphene labels (domain + lane; and ready when adopting)
+  - optionally emitting the matching autoscribe issue_created signal onto the bus
+
+Usage:
+  ./phosphene/phosphene-core/bin/phosphene autoscribe issue help  --domain <domain> --issue-number <N>
+  ./phosphene/phosphene-core/bin/phosphene autoscribe issue tidy  --domain <domain> --issue-number <N> [--work-id <ID>] [--intent <s>] [--upstream-signal-id <sha256:...>]
+  ./phosphene/phosphene-core/bin/phosphene autoscribe issue adopt --domain <domain> --issue-number <N> [--work-id <ID>] [--intent <s>] [--upstream-signal-id <sha256:...>]
+
+Notes:
+  - This command dispatches a GitHub Actions workflow:
+      .github/workflows/gantry.autoscribe.issue-adopt.yml
+  - It requires GitHub CLI: gh
+  - adopt mode writes to main bus.jsonl (requires PHOSPHENE_HUMAN_TOKEN configured as a repo secret).
+
+Examples:
+  ./phosphene/phosphene-core/bin/phosphene autoscribe issue adopt --domain product-marketing --issue-number 123 --work-id RA-001
+  ./phosphene/phosphene-core/bin/phosphene autoscribe issue tidy  --domain product-management --issue-number 456 --work-id PRD-010 --intent "prd-development"
+EOF
+}
+
+autoscribe_cmd() {
+  local root
+  root="$(phosphene_find_project_root)" || {
+    echo "PHOSPHENE: not in a PHOSPHENE project (cannot find repo root with ./phosphene)." 1>&2
+    return 1
+  }
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "PHOSPHENE: missing dependency: gh (GitHub CLI)" 1>&2
+    echo "Install: https://cli.github.com/  (then: gh auth login)" 1>&2
+    return 2
+  fi
+
+  local sub="${1:-help}"
+  shift || true
+  case "$sub" in
+    -h|--help|help) autoscribe_help; return 0 ;;
+  esac
+
+  if [[ "$sub" != "issue" ]]; then
+    echo "PHOSPHENE: unknown autoscribe subcommand: $sub" 1>&2
+    autoscribe_help
+    return 2
+  fi
+
+  local action="${1:-help}"
+  shift || true
+  local mode="help"
+  case "$action" in
+    help) mode="help" ;;
+    tidy) mode="tidy" ;;
+    adopt) mode="adopt" ;;
+    -h|--help) autoscribe_help; return 0 ;;
+    *)
+      echo "PHOSPHENE: unknown autoscribe issue action: $action" 1>&2
+      autoscribe_help
+      return 2
+      ;;
+  esac
+
+  local domain=""
+  local issue_number=""
+  local work_id=""
+  local intent=""
+  local upstream_signal_id=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --domain) domain="${2:-}"; shift 2 ;;
+      --issue-number) issue_number="${2:-}"; shift 2 ;;
+      --work-id) work_id="${2:-}"; shift 2 ;;
+      --intent) intent="${2:-}"; shift 2 ;;
+      --upstream-signal-id) upstream_signal_id="${2:-}"; shift 2 ;;
+      -h|--help) autoscribe_help; return 0 ;;
+      *) echo "PHOSPHENE: unknown arg: $1" 1>&2; autoscribe_help; return 2 ;;
+    esac
+  done
+
+  [[ -n "${domain:-}" ]] || { echo "PHOSPHENE: missing --domain" 1>&2; return 2; }
+  [[ -n "${issue_number:-}" ]] || { echo "PHOSPHENE: missing --issue-number" 1>&2; return 2; }
+
+  local wf=".github/workflows/gantry.autoscribe.issue-adopt.yml"
+  [[ -f "$root/$wf" ]] || {
+    echo "PHOSPHENE: missing workflow: $wf" 1>&2
+    return 2
+  }
+
+  local -a args
+  args=(workflow run "$wf" --ref main -f "mode=$mode" -f "domain=$domain" -f "issue_number=$issue_number")
+  if [[ -n "${work_id:-}" ]]; then args+=(-f "work_id=$work_id"); fi
+  if [[ -n "${intent:-}" ]]; then args+=(-f "intent=$intent"); fi
+  if [[ -n "${upstream_signal_id:-}" ]]; then args+=(-f "upstream_signal_id=$upstream_signal_id"); fi
+
+  (cd "$root" && gh "${args[@]}")
+}
+
+case "$CMD" in
+  banner) banner ;;
+  doctor) doctor ;;
+  id) id_cmd "$@" ;;
+  signal) signal_cmd "$@" ;;
+  autoscribe) autoscribe_cmd "$@" ;;
+  help|-h|--help) help ;;
+  *)
+    echo "Unknown command: $CMD" 1>&2
+    help
+    exit 1
+    ;;
+esac
+
+

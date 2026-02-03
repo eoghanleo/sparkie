@@ -1,0 +1,15 @@
+name: "spool.tangle.release"
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "TODO: spool a stable main beam state into a TANGLE (release artifact)."
+

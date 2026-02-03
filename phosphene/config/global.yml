@@ -1,0 +1,4 @@
+# Global posture config (cross-domain)
+# Format: key: value (flat, no nesting)
+prism.create_branch: false
+

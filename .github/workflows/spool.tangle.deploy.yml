@@ -1,0 +1,15 @@
+name: "spool.tangle.deploy"
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "TODO: spool into a deployment tangle (runtime instantiation)."
+

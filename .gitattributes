@@ -1,0 +1,23 @@
+# Preserve Unix line endings for Phosphene files
+# (Workflows contain inline JavaScript that requires LF)
+.github/workflows/*.yml text eol=lf
+.github/workflows/*.yaml text eol=lf
+.github/scripts/* text eol=lf
+.github/prompts/* text eol=lf
+
+# Shell scripts require LF
+*.sh text eol=lf
+
+# Phosphene core files require LF
+phosphene/** text eol=lf
+.codex/** text eol=lf
+
+# Python, JavaScript, etc - let Git handle normally
+*.py text
+*.js text
+*.md text
+
+# Binary files
+*.png binary
+*.jpg binary
+*.pdf binary

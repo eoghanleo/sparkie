@@ -1,0 +1,220 @@
+name: "gantry.prism.global"
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+env:
+  # Gantry write boundary (when/if enabled): signal bus only.
+  PHOSPHENE_GANTRY_WRITE_ALLOWLIST: |
+    phosphene/signals/**
+    phosphene/signals/indexes/**
+
+concurrency:
+  group: instrument-prism-global-${{ github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  parse:
+    if: false
+    runs-on: ubuntu-latest
+    outputs:
+      lane: ${{ steps.parse.outputs.lane }}
+      intent: ${{ steps.parse.outputs.intent }}
+      issue_number: ${{ steps.parse.outputs.issue_number }}
+      ok: ${{ steps.parse.outputs.ok }}
+    steps:
+      - name: Parse /phosphene command
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const bodyRawFull = (context.payload.comment?.body || "");
+            const firstLine = bodyRawFull.split(/\r?\n/, 1)[0].trim();
+            const issue_number = context.payload.issue.number;
+
+            // Only respond to explicit summons to avoid loops/noise.
+            if (!firstLine.startsWith("/phosphene ")) {
+              core.setOutput("ok", "0");
+              return;
+            }
+
+            // Format:
+            //   /phosphene viridian <intent...>
+            //   /phosphene beryl <intent...>
+            //   /phosphene cerulean <intent...>
+            const match = firstLine.match(/^\/phosphene\s+(viridian|beryl|cerulean)\s*(.*)$/i);
+            if (!match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number,
+                body: "PHOSPHENE: Unknown summon. Use `/phosphene viridian <intent>`, `/phosphene beryl <intent>`, or `/phosphene cerulean <intent>`.",
+              });
+              core.setOutput("ok", "0");
+              return;
+            }
+
+            const lane = match[1].toLowerCase();
+            const intent = (match[2] || "").trim() || "(no intent provided)";
+
+            core.setOutput("ok", "1");
+            core.setOutput("lane", lane);
+            core.setOutput("intent", intent);
+            core.setOutput("issue_number", String(issue_number));
+
+  viridian:
+    if: needs.parse.outputs.ok == '1' && needs.parse.outputs.lane == 'viridian'
+    needs: [parse]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summon apparatus (comment-only; no apparatus workflows)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number("${{ needs.parse.outputs.issue_number }}");
+            const intent = String("${{ needs.parse.outputs.intent }}");
+
+            const slugify = (s) => String(s || "")
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "")
+              .slice(0, 60);
+            const issueTitle = String(context.payload.issue?.title || "").trim();
+            const slug = slugify(issueTitle);
+            const branchName = (slug ? `issue-${issue_number}-${slug}` : `issue-${issue_number}`);
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: [
+                "@codex take issue.",
+                "",
+                "PHOSPHENE: prism dispatch (viridian).",
+                "",
+                `- **Intent**: ${intent}`,
+                `- **branch name (suggested)**: \`${branchName}\``,
+                "",
+                "TO AGENT (from prism):",
+                "- Read `phosphene/AGENTS.md`",
+                "- Read `.codex/skills/phosphene/viridian/research/modulator/SKILL.md`",
+                "- Use bash-only domain scripts (no hand-editing script-managed artifacts)",
+                "",
+                "**CRITICAL (TO AGENT)**",
+                "- If you create a branch, use the suggested branch name (or a close stable variant) for naming consistency.",
+                "- When ready, push your branch to `origin` (so a human can open the PR).",
+                "- Do NOT open or submit PRs manually (a human opens the PR; condensers approve after checks).",
+                "- When complete, emit your domain DONE receipt to `phosphene/signals/bus.jsonl`",
+              ].join(\"\\n\"),
+            });
+
+  beryl:
+    if: needs.parse.outputs.ok == '1' && needs.parse.outputs.lane == 'beryl'
+    needs: [parse]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summon apparatus (comment-only; no apparatus workflows)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number("${{ needs.parse.outputs.issue_number }}");
+            const intent = String("${{ needs.parse.outputs.intent }}");
+
+            const slugify = (s) => String(s || "")
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "")
+              .slice(0, 60);
+            const issueTitle = String(context.payload.issue?.title || "").trim();
+            const slug = slugify(issueTitle);
+            const branchName = (slug ? `issue-${issue_number}-${slug}` : `issue-${issue_number}`);
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: [
+                "@codex take issue.",
+                "",
+                "PHOSPHENE: prism dispatch (beryl).",
+                "",
+                `- **Intent**: ${intent}`,
+                `- **branch name (suggested)**: \`${branchName}\``,
+                "",
+                "TO AGENT (from prism):",
+                "- Read `phosphene/AGENTS.md`",
+                "- Read `.codex/skills/phosphene/beryl/product-marketing/modulator/SKILL.md`",
+                "- Use bash-only domain scripts (no hand-editing script-managed artifacts)",
+                "",
+                "**CRITICAL (TO AGENT)**",
+                "- If you create a branch, use the suggested branch name (or a close stable variant) for naming consistency.",
+                "- When ready, push your branch to `origin` (so a human can open the PR).",
+                "- Do NOT open or submit PRs manually (a human opens the PR; condensers approve after checks).",
+                "- When complete, emit your domain DONE receipt to `phosphene/signals/bus.jsonl`",
+              ].join(\"\\n\"),
+            });
+
+  cerulean:
+    if: needs.parse.outputs.ok == '1' && needs.parse.outputs.lane == 'cerulean'
+    needs: [parse]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summon apparatus (comment-only; no apparatus workflows)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number("${{ needs.parse.outputs.issue_number }}");
+            const intent = String("${{ needs.parse.outputs.intent }}");
+
+            const slugify = (s) => String(s || "")
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "")
+              .slice(0, 60);
+            const issueTitle = String(context.payload.issue?.title || "").trim();
+            const slug = slugify(issueTitle);
+            const branchName = (slug ? `issue-${issue_number}-${slug}` : `issue-${issue_number}`);
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: [
+                "@codex take issue.",
+                "",
+                "PHOSPHENE: prism dispatch (cerulean).",
+                "",
+                `- **Intent**: ${intent}`,
+                `- **branch name (suggested)**: \`${branchName}\``,
+                "",
+                "TO AGENT (from prism):",
+                "- Read `phosphene/AGENTS.md`",
+                "- Read `.codex/skills/phosphene/cerulean/product-management/modulator/SKILL.md`",
+                "- Read `.codex/skills/phosphene/cerulean/feature-management/modulator/SKILL.md`",
+                "- Use bash-only domain scripts (no hand-editing script-managed artifacts)",
+                "",
+                "**CRITICAL (TO AGENT)**",
+                "- If you create a branch, use the suggested branch name (or a close stable variant) for naming consistency.",
+                "- When ready, push your branch to `origin` (so a human can open the PR).",
+                "- Do NOT open or submit PRs manually (a human opens the PR; condensers approve after checks).",
+                "- When complete, emit your domain DONE receipt to `phosphene/signals/bus.jsonl`",
+              ].join(\"\\n\"),
+            });
+
+  rework:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "TODO: re-dispatch apparatus with defect context (recirculation)."
+

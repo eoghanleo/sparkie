@@ -1,0 +1,17 @@
+name: "safety.eject.branch_beam"
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "TODO: close PR, delete branch, mark as ejected, preserve audit trail."
+

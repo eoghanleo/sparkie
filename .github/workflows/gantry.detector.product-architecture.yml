@@ -1,0 +1,209 @@
+name: "gantry.detector.product-architecture"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "phosphene/signals/bus.jsonl"
+      - "phosphene/domains/product-architecture/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+env:
+  # Gantry write boundary (when/if enabled): signal bus only.
+  PHOSPHENE_GANTRY_WRITE_ALLOWLIST: |
+    phosphene/signals/**
+    phosphene/signals/indexes/**
+  PHOSPHENE_HUMAN_TOKEN: ${{ secrets.PHOSPHENE_HUMAN_TOKEN }}
+
+jobs:
+  validate_pr_and_request_condenser:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR HEAD
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Validate bus tamper hash (entire file)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash phosphene/phosphene-core/bin/signal_bus.sh validate --bus phosphene/signals/bus.jsonl
+
+      - name: Detect DONE receipt in PR diff
+        id: done
+        shell: bash
+        run: |
+          set -euo pipefail
+          bus="phosphene/signals/bus.jsonl"
+          base="${{ github.event.pull_request.base.ref }}"
+          git fetch origin "$base:refs/remotes/origin/$base" --force
+
+          git diff --unified=0 "origin/$base"...HEAD -- "$bus" \
+            | grep -E '^\+' \
+            | grep -vE '^\+\+\+' \
+            | sed -E 's/^\+//' \
+            | grep -E '^\{' \
+            > /tmp/pr_new_lines.txt || true
+
+          # Extract the first done receipt line if present.
+          done_line="$(node -e '
+            const fs = require("fs");
+            const lines = fs.readFileSync("/tmp/pr_new_lines.txt","utf8").split(/\\n/).filter(Boolean);
+            for (const line of lines) {
+              try {
+                const j = JSON.parse(line);
+                if (j.signal_type === "phosphene.done.product-architecture.receipt.v1") {
+                  process.stdout.write(line);
+                  process.exit(0);
+                }
+              } catch {}
+            }
+            process.exit(1);
+          ' && true || true)"
+
+          if [[ -z "${done_line:-}" ]]; then
+            echo "has_done=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          work_id="$(node -e 'const j=JSON.parse(process.argv[1]); process.stdout.write(String(j.work_id||""));' "$done_line" 2>/dev/null || true)"
+          sig_id="$(node -e 'const j=JSON.parse(process.argv[1]); process.stdout.write(String(j.signal_id||""));' "$done_line" 2>/dev/null || true)"
+          issue_number="$(node -e 'const j=JSON.parse(process.argv[1]); process.stdout.write(String(j.issue_number||""));' "$done_line" 2>/dev/null || true)"
+          lane="$(node -e 'const j=JSON.parse(process.argv[1]); process.stdout.write(String(j.lane||""));' "$done_line" 2>/dev/null || true)"
+          if [[ -z "${lane:-}" ]]; then lane="cerulean"; fi
+
+          echo "has_done=1" >> "$GITHUB_OUTPUT"
+          echo "work_id=$work_id" >> "$GITHUB_OUTPUT"
+          echo "done_signal_id=$sig_id" >> "$GITHUB_OUTPUT"
+          echo "issue_number=$issue_number" >> "$GITHUB_OUTPUT"
+          echo "lane=$lane" >> "$GITHUB_OUTPUT"
+
+      - name: Load done score config
+        id: config
+        shell: bash
+        run: |
+          set -euo pipefail
+          done_score_min="$(bash phosphene/phosphene-core/bin/phosphene_config.sh get --color cerulean --key product-architecture.done_score_min --default 10)"
+          [[ -n "${done_score_min:-}" ]] || done_score_min="10"
+          echo "PHOSPHENE_DONE_SCORE_MIN=$done_score_min" >> "$GITHUB_ENV"
+
+      - name: Run domain tests (product-architecture)
+        if: steps.done.outputs.has_done == '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tests/run.sh --product-architecture
+
+      - name: Validate product-architecture work units
+        if: steps.done.outputs.has_done == '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          lane="${{ steps.done.outputs.lane }}"
+          [[ "${lane:-cerulean}" == "cerulean" ]] || { echo "Lane must be cerulean for product-architecture (got: $lane)"; exit 2; }
+          ./phosphene/phosphene-core/bin/phosphene id validate
+
+          work_id="${{ steps.done.outputs.work_id }}"
+          [[ -n "${work_id:-}" ]] || { echo "Missing work_id"; exit 2; }
+
+          rel_path="$(./phosphene/phosphene-core/bin/phosphene id where "$work_id" | head -n 1 | awk -F'\t' '{print $3}' || true)"
+          [[ -n "${rel_path:-}" ]] || { echo "Cannot resolve in id registry: $work_id"; exit 1; }
+          [[ -f "$rel_path" ]] || { echo "Resolved path is not a file: $rel_path"; exit 1; }
+
+          bash .github/scripts/validate_product_architecture.sh "$rel_path"
+          bash .github/scripts/product-architecture-domain-done-score.sh --file "$rel_path" --min-score "${PHOSPHENE_DONE_SCORE_MIN:-10}"
+
+      - name: Emit approve signal to PR bus
+        if: steps.done.outputs.has_done == '1' && success()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export PHOSPHENE_GANTRY_WRITE_ALLOWLIST=$'phosphene/signals/**\nphosphene/signals/indexes/**'
+          bash phosphene/phosphene-core/bin/gantry_write_allowlist_guard.sh check
+
+          if [[ -z "${PHOSPHENE_HUMAN_TOKEN:-}" ]]; then
+            echo "PHOSPHENE: missing PHOSPHENE_HUMAN_TOKEN; refusing to push bus changes."
+            exit 1
+          fi
+
+          bus="phosphene/signals/bus.jsonl"
+          work_id="${{ steps.done.outputs.work_id }}"
+          issue_number="${{ steps.done.outputs.issue_number }}"
+          parent_signal_id="${{ steps.done.outputs.done_signal_id }}"
+          lane="${{ steps.done.outputs.lane }}"
+          created_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          output_key="detector:approve:product-architecture:issue:${issue_number}"
+
+          [[ -n "${work_id:-}" ]] || { echo "Missing work_id"; exit 2; }
+          [[ -n "${issue_number:-}" ]] || { echo "Missing issue_number"; exit 2; }
+          [[ -n "${parent_signal_id:-}" ]] || { echo "Missing done_signal_id"; exit 2; }
+          [[ "${lane:-cerulean}" == "cerulean" ]] || { echo "Lane must be cerulean (got: $lane)"; exit 2; }
+
+          signal_id="$(bash phosphene/phosphene-core/bin/signal_hash.sh signal-id --run-marker "$work_id" --output-key "$output_key" --parent "$parent_signal_id")"
+          if grep -qF "\"signal_id\":\"${signal_id}\"" "$bus"; then
+            echo "PHOSPHENE: approve already present (idempotent): $signal_id" >&2
+            exit 0
+          fi
+
+          line="{\"signal_version\":1,\"signal_id\":\"${signal_id}\",\"signal_type\":\"phosphene.detector.product-architecture.approve.v1\",\"work_id\":\"${work_id}\",\"domain\":\"product-architecture\",\"issue_number\":${issue_number},\"lane\":\"cerulean\",\"parents\":[\"${parent_signal_id}\"],\"run_marker\":\"${work_id}\",\"output_key\":\"${output_key}\",\"created_utc\":\"${created_utc}\"}"
+          bash phosphene/phosphene-core/bin/signal_bus.sh append --bus "$bus" --line "$line"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${PHOSPHENE_HUMAN_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add "$bus"
+          git commit -m "PHOSPHENE: detector approve product-architecture (issue ${issue_number})" || exit 0
+          git push origin HEAD:"${{ github.head_ref }}"
+
+      - name: Emit trap signal to PR bus (verification_failed)
+        if: steps.done.outputs.has_done == '1' && failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export PHOSPHENE_GANTRY_WRITE_ALLOWLIST=$'phosphene/signals/**\nphosphene/signals/indexes/**'
+          bash phosphene/phosphene-core/bin/gantry_write_allowlist_guard.sh check
+
+          if [[ -z "${PHOSPHENE_HUMAN_TOKEN:-}" ]]; then
+            echo "PHOSPHENE: missing PHOSPHENE_HUMAN_TOKEN; refusing to push bus changes."
+            exit 1
+          fi
+
+          bus="phosphene/signals/bus.jsonl"
+          work_id="${{ steps.done.outputs.work_id }}"
+          issue_number="${{ steps.done.outputs.issue_number }}"
+          parent_signal_id="${{ steps.done.outputs.done_signal_id }}"
+          lane="${{ steps.done.outputs.lane }}"
+          created_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          output_key="detector:trap:product-architecture:issue:${issue_number}"
+
+          [[ -n "${work_id:-}" ]] || { echo "Missing work_id"; exit 2; }
+          [[ -n "${issue_number:-}" ]] || { echo "Missing issue_number"; exit 2; }
+          [[ -n "${parent_signal_id:-}" ]] || { echo "Missing done_signal_id"; exit 2; }
+          [[ "${lane:-cerulean}" == "cerulean" ]] || { echo "Lane must be cerulean (got: $lane)"; exit 2; }
+
+          signal_id="$(bash phosphene/phosphene-core/bin/signal_hash.sh signal-id --run-marker "$work_id" --output-key "$output_key" --parent "$parent_signal_id")"
+          if grep -qF "\"signal_id\":\"${signal_id}\"" "$bus"; then
+            echo "PHOSPHENE: trap already present (idempotent): $signal_id" >&2
+            exit 0
+          fi
+
+          line="{\"signal_version\":1,\"signal_id\":\"${signal_id}\",\"signal_type\":\"phosphene.detector.product-architecture.trap.v1\",\"work_id\":\"${work_id}\",\"domain\":\"product-architecture\",\"issue_number\":${issue_number},\"lane\":\"cerulean\",\"parents\":[\"${parent_signal_id}\"],\"reason\":\"verification_failed\",\"run_marker\":\"${work_id}\",\"output_key\":\"${output_key}\",\"created_utc\":\"${created_utc}\"}"
+          bash phosphene/phosphene-core/bin/signal_bus.sh append --bus "$bus" --line "$line"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${PHOSPHENE_HUMAN_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git add "$bus"
+          git commit -m "PHOSPHENE: detector trap product-architecture (issue ${issue_number})" || exit 0
+          git push origin HEAD:"${{ github.head_ref }}"

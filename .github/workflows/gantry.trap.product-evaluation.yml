@@ -1,0 +1,273 @@
+name: "gantry.trap.product-evaluation"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "phosphene/signals/bus.jsonl"
+  push:
+    paths:
+      - "phosphene/signals/bus.jsonl"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: instrument-trap-product-evaluation-${{ github.event.pull_request.number || github.sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  comment_remediation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Extract new bus lines (push)
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bus="phosphene/signals/bus.jsonl"
+          before="${{ github.event.before }}"
+          after="${{ github.sha }}"
+          git diff --unified=0 "$before" "$after" -- "$bus" \
+            | grep -E '^\+' \
+            | grep -vE '^\+\+\+' \
+            | sed -E 's/^\+//' \
+            | grep -E '^\{' \
+            > /tmp/new_lines.txt || true
+
+      - name: Extract new bus lines (PR)
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bus="phosphene/signals/bus.jsonl"
+          base="${{ github.event.pull_request.base.ref }}"
+          git fetch origin "$base:refs/remotes/origin/$base" --force
+          git diff --unified=0 "origin/$base"...HEAD -- "$bus" \
+            | grep -E '^\+' \
+            | grep -vE '^\+\+\+' \
+            | sed -E 's/^\+//' \
+            | grep -E '^\{' \
+            > /tmp/new_lines.txt || true
+
+      - name: Build trap index (product-evaluation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("fs");
+            const raw = fs.existsSync("/tmp/new_lines.txt") ? fs.readFileSync("/tmp/new_lines.txt","utf8") : "";
+            const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+            const out = [];
+            for (const line of lines) {
+              try {
+                const j = JSON.parse(line);
+                if (j.signal_type !== "phosphene.detector.product-evaluation.trap.v1") continue;
+                const signal_id = String(j.signal_id || "").trim();
+                const issue_number = String(j.issue_number || "").trim();
+                if (!signal_id || !issue_number) continue;
+                const work_id = String(j.work_id || "").trim();
+                const reason = String(j.reason || "verification_failed").trim();
+                const lane = String(j.lane || "").trim();
+                out.push([signal_id, issue_number, work_id, reason, lane].join("\t"));
+              } catch {}
+            }
+            process.stdout.write(out.join("\n"));
+          ' > /tmp/product_evaluation_traps.tsv
+
+      - name: Run trap validations (product-evaluation)
+        shell: bash
+        run: |
+          set -u
+          tsv="/tmp/product_evaluation_traps.tsv"
+          [[ -s "$tsv" ]] || { echo "PHOSPHENE: no product-evaluation trap signals to validate."; exit 0; }
+
+          done_score_min="$(bash phosphene/phosphene-core/bin/phosphene_config.sh get --color cadmium --key product-evaluation.done_score_min --default 10)"
+          [[ -n "${done_score_min:-}" ]] || done_score_min="10"
+
+          mkdir -p /tmp/product_evaluation_trap_reports
+
+          write_result() {
+            local name="$1"
+            local status="$2"
+            local message="${3:-}"
+            {
+              echo "- \`${name}\`: ${status}"
+              if [[ "${status}" == "PASS" ]]; then
+                echo "  - message: ${message:-ok}"
+              elif [[ "${status}" == "SKIP" ]]; then
+                echo "  - message: ${message:-skipped}"
+              else
+                echo "  - message:"
+                echo "    \`\`\`text"
+                printf "%s\n" "${message:-no output}"
+                echo "    \`\`\`"
+              fi
+            } >> "$results_file"
+          }
+
+          run_check() {
+            local name="$1"
+            shift
+            local slug
+            slug="$(echo "$name" | tr ' /' '__' | tr -cd '[:alnum:]_-')"
+            local log="/tmp/product_evaluation_${signal_id}_${slug}.log"
+            if "$@" >"$log" 2>&1; then
+              write_result "$name" "PASS" "ok"
+              return 0
+            fi
+            local code=$?
+            local msg="exit ${code}"
+            if [[ -s "$log" ]]; then
+              msg="${msg}"$'\n'"$(cat "$log")"
+            fi
+            write_result "$name" "FAIL" "$msg"
+            return 0
+          }
+
+          while IFS=$'\t' read -r signal_id issue_number work_id reason lane; do
+            [[ -n "${signal_id:-}" ]] || continue
+            results_file="/tmp/product_evaluation_trap_reports/${signal_id}.md"
+            : > "$results_file"
+
+            if [[ -z "${lane:-}" ]]; then
+              write_result "lane check" "PASS" "lane missing; default cadmium"
+            elif [[ "${lane}" != "cadmium" ]]; then
+              write_result "lane check" "FAIL" "Lane must be cadmium for product-evaluation (got: ${lane})"
+            else
+              write_result "lane check" "PASS" "cadmium"
+            fi
+
+            run_check "tests/run.sh --product-evaluation" bash tests/run.sh --product-evaluation
+            run_check "phosphene id validate" ./phosphene/phosphene-core/bin/phosphene id validate
+
+            if [[ -z "${work_id:-}" ]]; then
+              write_result "work_id present" "FAIL" "Missing work_id from trap signal."
+              write_result "resolve work_id" "SKIP" "No work_id available."
+              write_result "validate evaluation" "SKIP" "No work_id available."
+              write_result "done score" "SKIP" "No work_id available."
+              continue
+            fi
+
+            write_result "work_id present" "PASS" "${work_id}"
+
+            rel_log="/tmp/product_evaluation_${signal_id}_resolve_work_id.log"
+            rel_path="$(./phosphene/phosphene-core/bin/phosphene id where "$work_id" 2>"$rel_log" | head -n 1 | awk -F'\t' '{print $3}' || true)"
+            if [[ -z "${rel_path:-}" ]]; then
+              msg="Cannot resolve in id registry: ${work_id}"
+              if [[ -s "$rel_log" ]]; then
+                msg="${msg}"$'\n'"$(cat "$rel_log")"
+              fi
+              write_result "resolve work_id" "FAIL" "$msg"
+              write_result "validate evaluation" "SKIP" "Missing resolved work path."
+              write_result "done score" "SKIP" "Missing resolved work path."
+              continue
+            fi
+
+            if [[ ! -f "$rel_path" ]]; then
+              write_result "resolve work_id" "FAIL" "Resolved path is not a file: ${rel_path}"
+              write_result "validate evaluation" "SKIP" "Resolved path invalid."
+              write_result "done score" "SKIP" "Resolved path invalid."
+              continue
+            fi
+
+            write_result "resolve work_id" "PASS" "${rel_path}"
+            run_check "validate evaluation" bash .github/scripts/validate_product_evaluation.sh "$rel_path"
+            run_check "done score" bash .github/scripts/product-evaluation-domain-done-score.sh --file "$rel_path" --min-score "${done_score_min}"
+          done < "$tsv"
+
+      - name: Post remediation comment(s) for product-evaluation trap signals
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const { owner, repo } = context.repo;
+
+            const raw = fs.existsSync("/tmp/new_lines.txt") ? fs.readFileSync("/tmp/new_lines.txt","utf8") : "";
+            const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+
+            const traps = [];
+            for (const line of lines) {
+              try {
+                const j = JSON.parse(line);
+                if (j.signal_type === "phosphene.detector.product-evaluation.trap.v1") traps.push(j);
+              } catch {}
+            }
+
+            if (traps.length === 0) {
+              core.notice("PHOSPHENE: no product-evaluation trap signals found in new lines.");
+              return;
+            }
+
+            const hasMarker = async (issue_number, marker) => {
+              const comments = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 });
+              return (comments.data || []).some((c) => String(c?.body || "").includes(marker));
+            };
+
+            for (const t of traps) {
+              const issue_number = Number(t.issue_number || 0);
+              const work_id = String(t.work_id || "").trim();
+              const reason = String(t.reason || "verification_failed").trim();
+              const trap_signal_id = String(t.signal_id || "").trim();
+              if (!issue_number || !trap_signal_id) continue;
+
+              const reportPath = `/tmp/product_evaluation_trap_reports/${trap_signal_id}.md`;
+              const report = fs.existsSync(reportPath)
+                ? String(fs.readFileSync(reportPath, "utf8")).trim()
+                : "_No validation results available._";
+
+              const marker = `PHOSPHENE-TRAP:signal_id:${trap_signal_id}`;
+              if (await hasMarker(issue_number, marker)) {
+                core.notice(`PHOSPHENE: trap comment already posted for issue #${issue_number} (${marker})`);
+                continue;
+              }
+
+              const requiredActions = [
+                "- Validate ID registry: `./phosphene/phosphene-core/bin/phosphene id validate`",
+                "- Validate evaluations: `bash .github/scripts/validate_product_evaluation.sh --all`",
+                "- Run done-score: `bash .github/scripts/product-evaluation-domain-done-score.sh --min-score 10`",
+                `- Re-emit DONE receipt: \`./.codex/skills/phosphene/cadmium/product-evaluation/modulator/scripts/product-evaluation_emit_done_receipt.sh --issue-number ${issue_number} --work-id ${work_id}\``,
+              ];
+
+              if (reason === "checks_failed") {
+                requiredActions.unshift("- Fix failing CI checks on the PR and re-run until green.");
+              }
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: [
+                  "@codex take issue.",
+                  "",
+                  "PHOSPHENE TRAP: remediation required.",
+                  "",
+                  "## Context",
+                  `- domain: product-evaluation`,
+                  `- work_id: \`${work_id}\``,
+                  `- issue_number: #${issue_number}`,
+                  `- reason: \`${reason}\``,
+                  `- trap_signal_id: \`${trap_signal_id}\``,
+                  "",
+                  "## Validation results (trap rerun)",
+                  report,
+                  "",
+                  "## Required actions (MUST)",
+                  ...requiredActions,
+                  "",
+                  "## Completion",
+                  "- Emit a NEW DONE receipt signal after fixes.",
+                  "",
+                  marker,
+                ].join("\n"),
+              });
+            }
+
+            core.notice(`PHOSPHENE: trap remediation processed (${traps.length} signal(s)).`);
